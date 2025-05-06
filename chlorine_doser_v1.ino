@@ -75,9 +75,6 @@ void setup() {
   Serial1.begin(9600);     // For GPS, typical default baud rate
   delay(100);
 
-  // see if we can get rtc data from the GPS. It'll help us fix the time faster.
-  read_neo6m_rtc();
-
   delay(1900); // give time for USB to start.
   last_millis = millis();
   Serial.println("Initialization finished.");
