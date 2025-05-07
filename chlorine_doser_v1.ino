@@ -29,7 +29,6 @@ int app_state = S_INIT;
 const int buttonPins[3] = {BTN_DOWN, BTN_CTRL, BTN_UP};  // our buttons.
 boolean display_needs_update = false;
 int run_duration = 10;
-int manual_duration = 0;
 int utc_offset = -5; // default to summer time in San Antonio.
 bool time_is_fixed = false;
 bool loc_is_fixed = false;
@@ -173,9 +172,12 @@ void maybe_go_up_or_down() {
         utc_offset += increment;
         // Serial.print("UTC offset set to "); Serial.print(utc_offset); Serial.println(" hours.");
       }
-    } else if (app_state == S_MANUAL_RUN) {
-      manual_duration = max(0, manual_duration + increment);
-      // Serial.print("Manual run for "); Serial.print(manual_duration); Serial.println(" seconds.");
+    } else if (app_state == S_MANUAL_RUN && increment == 0 && run_duration > 0) {
+      bool not_already_running = digitalRead(D2) == LOW;
+      if (not_already_running) {
+        Serial.println("Manual run starting");
+        do_run(run_duration);
+      }
     } else if (app_state == S_RESET && increment == 0) {
       Serial.println("Resetting...system will restart in 5 seconds");
       for (int i = 0; i < 5; i++) {
@@ -204,8 +206,9 @@ void maybe_update_display() {
   long right_now = millis();
   long millis_since = right_now - last_screen_update;
 
-  // force update every minute, or within 5s of a button press regardless of need.
-  if (millis_since > 60000 || right_now - last_button < 5000) {
+  // we don't want to update all the time.
+  // if (millis_since > 60000 || right_now - last_button < 5000) {
+  if (millis_since > 100) {
     display_needs_update = true; // force update every minute regardless of need.
   }
 
@@ -228,11 +231,10 @@ void maybe_update_display() {
 
     snprintf(
       screen[3], sizeof(screen[6]),
-      "run :%d, man :%d",
-      run_duration, manual_duration
+      "run duration :%d",
+      run_duration
     );
     Serial.print("run: "); Serial.print(run_duration); 
-    Serial.print(", man: "); Serial.print(manual_duration);
     Serial.print(", tzd: "); Serial.print(utc_offset);
 
     Serial.print(", mode:");
@@ -293,7 +295,7 @@ double calc_next_sunset() {
 }
 
 
-// given: manual_duration > 0;
+// given: run_for > 0;
 void do_run(int run_for) {
   digitalWrite(D2, HIGH);
   while (run_for > 0) {
@@ -315,19 +317,6 @@ void do_run(int run_for) {
   );
   display_needs_update = true;
   maybe_update_display();
-}
-
-void maybe_do_manual_run() {
-  bool not_already_running = digitalRead(D2) == LOW;
-  bool correct_state = app_state == S_MANUAL_RUN;
-  bool waited_long_enough = millis() - last_button > 5000;
-  bool gtz_duration = manual_duration > 0;
-  if (not_already_running && correct_state && waited_long_enough && gtz_duration) {
-    Serial.println("Doing manual run.");
-    do_run(manual_duration);
-    app_state = S_INIT;
-    display_needs_update = true;
-  }
 }
 
 void maybe_do_automatic_run() {
@@ -379,7 +368,6 @@ void loop() {
   maybe_adjust_mode();
   maybe_go_up_or_down();
   maybe_update_display();
-  maybe_do_manual_run();
   maybe_do_automatic_run();
   delay(10);
 }
