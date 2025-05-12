@@ -291,6 +291,12 @@ double calc_next_sunset() {
   double transit, sunrise, sunset;
   calcSunriseSunset(utc, lat, lon, transit, sunrise, sunset);
   double sunset_in = sunset - utc_hour - (utc_mins/60.0);
+  // fix for https://github.com/gdusbabek/pdoser/issues/1
+  // we go from sunset in X hours (0 < X < 2) to sunset in X+24 hours.
+  // So we never get to within 1 hour of sunset. Fix that by modulating by 24.
+  while (sunset_in > 24.001) {
+    sunset_in -= 24.0;
+  }
   return sunset_in;
 }
 
