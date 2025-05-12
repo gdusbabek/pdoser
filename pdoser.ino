@@ -8,9 +8,12 @@
 #define S_ADJUST_DURATION 0
 #define S_ADJUST_TIME 1
 #define S_MANUAL_RUN 2
-#define S_RESET 3
-#define S_INIT 4
+#define S_DIRECT_RUN 3
+#define S_RESET 4
+#define S_INIT 5
+#define NUM_MODES 6
 #define S_OVERFLOW 100
+
 
 // button pin assignments.
 #define BTN_UP D3
@@ -40,6 +43,7 @@ int gps_month = 0;
 int gps_day = 0;
 long last_screen_update = 0;
 long last_button = 0; // last time one of the buttons was pressed. 
+long direct_run_start = 0;
 double lat = 0.0;
 double lon = 0.0;
 int sats = 0;
@@ -149,7 +153,14 @@ bool maybe_adjust_mode() {
     // we need to change modes.
     last_button = millis();
     display_needs_update = true;
-    app_state = (app_state + 1) % 5;
+    app_state = (app_state + 1) % NUM_MODES;
+
+    // force the motor off if not in direct mode.
+    if (app_state != S_DIRECT_RUN && digitalRead(D2) == HIGH) {
+      digitalWrite(D2, LOW);
+      // clear out the screen.
+      strncpy(screen[5], "                     ", 21);
+    }
   }
 }
 
@@ -162,6 +173,7 @@ void maybe_go_up_or_down() {
     int increment = 0 + 
       (buttons[2].read() == LOW ? 1 : 0) + // <-- up
       (buttons[0].read() == LOW ? -1 : 0); // <-- down
+    bool not_already_running = digitalRead(D2) == LOW;
     
     if (app_state == S_ADJUST_DURATION) {
       run_duration = max(0, run_duration + increment);
@@ -172,11 +184,18 @@ void maybe_go_up_or_down() {
         utc_offset += increment;
         // Serial.print("UTC offset set to "); Serial.print(utc_offset); Serial.println(" hours.");
       }
-    } else if (app_state == S_MANUAL_RUN && increment == 0 && run_duration > 0) {
-      bool not_already_running = digitalRead(D2) == LOW;
-      if (not_already_running) {
-        Serial.println("Manual run starting");
-        do_run(run_duration);
+    } else if (app_state == S_MANUAL_RUN && increment == 0 && run_duration > 0 && not_already_running) {
+      Serial.println("Manual run starting");
+      do_run(run_duration);
+    } else if (app_state == S_DIRECT_RUN && increment != 0) {
+      bool turn_on = not_already_running && increment > 0;
+      bool turn_off = !not_already_running && increment < 0;
+      // there are a few other states which basically mean "leave it alone". We ignore those.
+      if (turn_on) {
+        direct_run_start = last_button;
+        digitalWrite(D2, HIGH);
+      } else {
+        digitalWrite(D2, LOW);
       }
     } else if (app_state == S_RESET && increment == 0) {
       Serial.println("Resetting...system will restart in 5 seconds");
@@ -250,6 +269,22 @@ void maybe_update_display() {
     } else if (app_state == S_MANUAL_RUN) {
       Serial.print(" manual");
       strncpy(screen[2]+6, "manual run", 21-6);
+    } else if (app_state == S_DIRECT_RUN) {
+      Serial.print(" direct");
+      bool already_running = digitalRead(D2) == HIGH;
+      if (!already_running) {
+        // blank out the line
+        strncpy(screen[5], "                     ", 21);
+      } else {
+        // figure out how long we've been running.
+        int run_duration = (long)(right_now - direct_run_start)/1000;
+        snprintf(
+          screen[5], sizeof(screen[5]),
+          "running :%d sec",
+          run_duration
+        );
+      }
+      strncpy(screen[2]+6, "direct run", 21-6);
     } else if (app_state == S_RESET) {
       Serial.print(" reset");
       strncpy(screen[2]+6, "RESET", 21-6);
