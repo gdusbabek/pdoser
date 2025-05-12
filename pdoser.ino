@@ -154,11 +154,13 @@ bool maybe_adjust_mode() {
     last_button = millis();
     display_needs_update = true;
     app_state = (app_state + 1) % NUM_MODES;
-  }
 
-  // force the motor off if not in direct mode.
-  if (app_state != S_DIRECT_RUN) {
-    digitalWrite(D2, LOW);
+    // force the motor off if not in direct mode.
+    if (app_state != S_DIRECT_RUN && digitalRead(D2) == HIGH) {
+      digitalWrite(D2, LOW);
+      // clear out the screen.
+      strncpy(screen[5], "                     ", 21);
+    }
   }
 }
 
