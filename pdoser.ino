@@ -51,6 +51,7 @@ bool sunset_trigger = false;
 long last_sunset_run = 0;
 long last_millis = 0;
 char screen[7][22];  // 7 lines of 21 characters + null terminator
+time_t last_run_time = NULL;
 
 void setup() {
 
@@ -194,8 +195,10 @@ void maybe_go_up_or_down() {
       if (turn_on) {
         direct_run_start = last_button;
         digitalWrite(D2, HIGH);
-      } else {
+        last_run_time = now() + (utc_offset * 3600);
+      } else if (turn_off) {
         digitalWrite(D2, LOW);
+        last_run_time = now() + (utc_offset * 3600);
       }
     } else if (app_state == S_RESET && increment == 0) {
       Serial.println("Resetting...system will restart in 5 seconds");
@@ -245,6 +248,15 @@ void maybe_update_display() {
         "%02d:%02d:%02d %04d/%02d/%02d",
         hour(local_time), minute(local_time), second(local_time),
         year(local_time), month(local_time), day(local_time)
+      );
+    }
+
+    if (last_run_time != NULL) {
+      snprintf(
+        screen[4], sizeof(screen[4]),
+        "last ran %02d:%02d:%02d %04d/%02d/%02d",
+        hour(last_run_time), minute(last_run_time), second(last_run_time),
+        year(last_run_time), month(last_run_time), day(last_run_time)
       );
     }
 
@@ -340,6 +352,7 @@ double calc_next_sunset() {
 // given: run_for > 0;
 void do_run(int run_for) {
   digitalWrite(D2, HIGH);
+  last_run_time = now() + (utc_offset * 3600);
   while (run_for > 0) {
     Serial.print("   Will run for "); Serial.print(run_for); Serial.println(" seconds.");
     snprintf(
