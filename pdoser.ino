@@ -318,7 +318,7 @@ void maybe_update_display() {
         "sunset in %.2f hours",
         sunset_in
       );
-      double uptime_days = last_screen_update / 3600000;
+      double uptime_days = (double)last_screen_update / 86400000.0;
       snprintf(
         screen[6], sizeof(screen[6]),
         "%02d sats UTC%+d   %.1fd",
