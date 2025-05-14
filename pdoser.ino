@@ -254,9 +254,9 @@ void maybe_update_display() {
     if (last_run_time != NULL) {
       snprintf(
         screen[4], sizeof(screen[4]),
-        "last ran %02d:%02d:%02d %04d/%02d/%02d",
-        hour(last_run_time), minute(last_run_time), second(last_run_time),
-        year(last_run_time), month(last_run_time), day(last_run_time)
+        "last ran %02d:%02d %02d/%02d",
+        hour(last_run_time), minute(last_run_time),
+        month(last_run_time), day(last_run_time)
       );
     }
 
