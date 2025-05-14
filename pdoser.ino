@@ -31,7 +31,7 @@ Bounce buttons[3]; // bounce object for each button.
 int app_state = S_INIT;
 const int buttonPins[3] = {BTN_DOWN, BTN_CTRL, BTN_UP};  // our buttons.
 boolean display_needs_update = false;
-int run_duration = 10;
+int run_duration = 5;
 int utc_offset = -5; // default to summer time in San Antonio.
 bool time_is_fixed = false;
 bool loc_is_fixed = false;
@@ -178,7 +178,7 @@ void maybe_go_up_or_down() {
     
     if (app_state == S_ADJUST_DURATION) {
       run_duration = max(0, run_duration + increment);
-      // Serial.print("Run duration set to "); Serial.print(run_duration); Serial.println(" seconds.");
+      // Serial.print("Run duration set to "); Serial.print(run_duration); Serial.println(" mins.");
     } else if (app_state == S_ADJUST_TIME) {
       int new_utc_offset = utc_offset + increment;
       if (new_utc_offset >= -12 && new_utc_offset <= 12) {
@@ -262,7 +262,7 @@ void maybe_update_display() {
 
     snprintf(
       screen[3], sizeof(screen[6]),
-      "run duration :%d",
+      "duration %d min",
       run_duration
     );
     Serial.print("run: "); Serial.print(run_duration); 
@@ -289,11 +289,11 @@ void maybe_update_display() {
         strncpy(screen[5], "                     ", 21);
       } else {
         // figure out how long we've been running.
-        int run_duration = (long)(right_now - direct_run_start)/1000;
+        int run_secs = (long)(right_now - direct_run_start)/1000;
         snprintf(
           screen[5], sizeof(screen[5]),
           "running :%d sec",
-          run_duration
+          run_secs
         );
       }
       strncpy(screen[2]+6, "direct run", 21-6);
@@ -350,20 +350,21 @@ double calc_next_sunset() {
 
 
 // given: run_for > 0;
-void do_run(int run_for) {
+void do_run(int run_mins) {
   digitalWrite(D2, HIGH);
   last_run_time = now() + (utc_offset * 3600);
-  while (run_for > 0) {
-    Serial.print("   Will run for "); Serial.print(run_for); Serial.println(" seconds.");
+  int run_secs = run_mins * 60;
+  while (run_secs > 0) {
+    Serial.print("   Will run for "); Serial.print(run_secs); Serial.println(" seconds.");
     snprintf(
       screen[5], sizeof(screen[5]),
-      "Run for %d seconds",
-      run_for
+      "Run for %d sec",
+      run_secs
     );
     display_needs_update = true;
     maybe_update_display();
     delay(1000);
-    run_for -= 1;
+    run_secs -= 1;
   }
   digitalWrite(D2, LOW);
   snprintf(
